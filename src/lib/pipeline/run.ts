@@ -10,6 +10,7 @@ import { saveJob, jobDir } from "@/lib/jobs";
 import { buildScript } from "./script";
 import { buildScenes } from "./timing";
 import { buildShots, fallbackPromptWriter, PromptWriter } from "./prompts";
+import { buildCharacterSheet } from "./character";
 import { buildSubtitleCues, cuesToSrt } from "./subtitles";
 import { runQA } from "./qa";
 import { buildFfmpegCommand } from "./assemble";
@@ -65,8 +66,11 @@ export async function runPipeline(job: Job): Promise<Job> {
 
     // ---- 4. PROMPTS ----
     await persist("prompts", {});
+    const characterSheet = await buildCharacterSheet(job.input, llm);
+    job.artifacts.characterSheet = characterSheet;
+    log.info("prompts", `character sheet fixed for the whole video: "${characterSheet.slice(0, 80)}..."`);
     const promptWriter = makeLLMPromptWriter(llm);
-    const shots: Shot[] = await buildShots(scenes, job.input.visualStyle, job.input.niche, promptWriter);
+    const shots: Shot[] = await buildShots(scenes, job.input.visualStyle, job.input.niche, promptWriter, { characterSheet });
     z.array(ShotSchema).parse(shots);
     job.artifacts.shots = shots;
     job.completedSteps.push("prompts");
@@ -155,9 +159,10 @@ function makeLLMPromptWriter(llm: { complete(s: string, u: string): Promise<stri
   return async (args) => {
     try {
       const system =
-        "Você escreve prompts de geração de imagem em inglês, específicos e cinematográficos. " +
-        "Responda com UMA linha apenas (o prompt). Nunca use prompts genéricos. " +
-        "O prompt deve retratar exatamente a frase dada, no estilo visual pedido, e ser DIFERENTE dos prompts anteriores.";
+        "Você escreve prompts de geração de imagem para FLUX.1, em inglês, em linguagem natural corrida (sem listas de tags, sem negative prompt). " +
+        "Responda com UMA linha apenas (o prompt). Regras: o personagem deve estar FAZENDO a ação da frase, com as mãos visíveis interagindo com um objeto; " +
+        "cenário específico da frase (nunca fundo vazio); mãos em pose simples (segurando, apontando, apoiada); no máximo 1 personagem em foco; " +
+        "nada de texto, letras ou placas legíveis na imagem. Proibido retrato parado olhando para a câmera. Seja DIFERENTE dos prompts anteriores.";
       const user = `Frase: ${args.sentence}\nEstilo visual: ${args.visualStyle}\nNicho: ${args.niche}\nPrompts anteriores (não repita): ${args.previousPrompts.join(" | ") || "nenhum"}`;
       const out = (await llm.complete(system, user)).trim().replace(/\n[\s\S]*/, "");
       if (out.length < 30) throw new Error("prompt too short");

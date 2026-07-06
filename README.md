@@ -15,13 +15,19 @@ Sistema completo que transforma um título (ou roteiro colado) em um vídeo long
 Crie um `.env.local`:
 
 ```env
-OPENAI_API_KEY=sk-...        # habilita LLM (roteiro/prompts/metadados), TTS e imagens reais
+TOGETHER_API_KEY=...         # imagens via FLUX.1 na Together AI (e LLM, se não houver chave OpenAI)
+OPENAI_API_KEY=sk-...        # LLM + narração TTS (a Together não tem TTS)
 # PROVIDER_MODE=mock         # roda tudo com mocks (sem custo, para testar o fluxo)
-# LLM_MODEL=gpt-4o
+# IMAGE_MODEL=black-forest-labs/FLUX.1-schnell   # ou FLUX.1-dev / FLUX.1.1-pro
+# FLUX_STEPS=4               # 4 para schnell; 28+ para dev
+# LLM_MODEL=gpt-4o           # ou um modelo da Together
 # TTS_MODEL=tts-1-hd
-# IMAGE_MODEL=dall-e-3
 # BGM_PATH=/caminho/musica.mp3   # música de fundo (opcional, com ducking automático)
 ```
+
+### Consistência de personagem (FLUX.1)
+
+O pipeline gera uma **ficha de personagem** (descrição fixa em inglês) uma única vez por vídeo e a repete palavra por palavra no início de todos os prompts — é isso que mantém o mesmo rosto/roupa em todas as imagens sem LoRA. Além disso: rotação obrigatória de enquadramento (wide / medium / close nas mãos / over-the-shoulder / perfil / low angle, nunca dois iguais seguidos), personagem sempre executando a ação da frase com as mãos visíveis, e proibição de texto legível nas imagens. O QA compara os prompts ignorando o prefixo compartilhado, então a ficha fixa nunca mascara uma duplicata real.
 
 **FFmpeg** precisa estar instalado na máquina para a renderização final (`apt install ffmpeg` / `brew install ffmpeg`). Sem FFmpeg, o pipeline roda até o fim e salva o comando pronto em `assets/ffmpeg-command.json` para renderizar depois.
 

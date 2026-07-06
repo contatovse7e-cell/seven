@@ -51,9 +51,12 @@ export function runQA(args: {
   }
 
   // 6. No visually repeated images (same prompt => same-looking image).
+  // The shared style/character-sheet prefix is stripped first: it is
+  // intentionally identical on every prompt and must not mask real dupes.
+  const cores = stripCommonPrefix(shots.map((s) => s.imagePrompt));
   for (let i = 0; i < shots.length; i++) {
     for (let j = i + 1; j < shots.length; j++) {
-      const sim = jaccardSimilarity(shots[i].imagePrompt, shots[j].imagePrompt);
+      const sim = jaccardSimilarity(cores[i], cores[j]);
       if (sim > 0.9) errors.push(`${shots[i].id} and ${shots[j].id}: near-identical prompts (${(sim * 100).toFixed(0)}% similar)`);
       else if (sim > 0.75) warnings.push(`${shots[i].id} and ${shots[j].id}: similar prompts (${(sim * 100).toFixed(0)}%)`);
     }
@@ -66,4 +69,14 @@ export function runQA(args: {
   }
 
   return { passed: errors.length === 0, errors, warnings };
+}
+
+/** Remove the longest common word-prefix shared by ALL prompts. */
+export function stripCommonPrefix(prompts: string[]): string[] {
+  if (prompts.length < 2) return prompts;
+  const split = prompts.map((p) => p.split(/\s+/));
+  let common = 0;
+  const min = Math.min(...split.map((w) => w.length));
+  while (common < min - 1 && split.every((w) => w[common] === split[0][common])) common++;
+  return split.map((w) => w.slice(common).join(" ") || w.join(" "));
 }

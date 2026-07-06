@@ -17,6 +17,19 @@ const ANIMATIONS: Shot["animation"]["type"][] = [
 const DEFAULT_NEGATIVE = "text, watermark, logo, low quality, deformed hands, extra fingers, blurry";
 
 /**
+ * Framing rotation: never two consecutive shots with the same framing, and
+ * face close-ups are rare — fixes the "20 identical bust shots" failure mode.
+ */
+const FRAMINGS = [
+  "wide shot showing the full scene",
+  "medium shot, hands visibly interacting with the work object",
+  "close-up on the hands and the tool, face out of frame",
+  "over-the-shoulder view of the task being done",
+  "side profile view mid-action",
+  "low angle view emphasizing the environment",
+];
+
+/**
  * Build one unique, sentence-linked image prompt per shot window.
  *
  * Anti-repetition guarantees:
@@ -30,6 +43,7 @@ export async function buildShots(
   visualStyle: string,
   niche: string,
   writePrompt: PromptWriter,
+  opts: { characterSheet?: string } = {},
 ): Promise<Shot[]> {
   const windows = buildShotWindows(scenes);
   const shots: Shot[] = [];
@@ -68,6 +82,13 @@ export async function buildShots(
     }
     previousPrompts.push(prompt);
 
+    // Framing rotation + fixed character sheet, applied AFTER dedup so the
+    // shared prefix never masks a repeated core prompt.
+    const framing = FRAMINGS[i % FRAMINGS.length];
+    const finalPrompt = opts.characterSheet
+      ? `${visualStyle}. ${opts.characterSheet}. ${prompt}, ${framing}, no readable text or letters anywhere, smooth blank surfaces`
+      : `${prompt}, ${framing}`;
+
     shots.push(
       ShotSchema.parse({
         id: `shot-${String(i + 1).padStart(4, "0")}`,
@@ -75,7 +96,7 @@ export async function buildShots(
         sentence: w.sentence,
         startSec: w.startSec,
         endSec: w.endSec,
-        imagePrompt: prompt,
+        imagePrompt: finalPrompt,
         negativePrompt: DEFAULT_NEGATIVE,
         animation: {
           type: ANIMATIONS[i % ANIMATIONS.length],

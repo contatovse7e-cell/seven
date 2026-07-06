@@ -13,9 +13,11 @@ describe("pipeline end-to-end (mock providers)", () => {
     const { createJob } = await import("@/lib/jobs");
     const { runPipeline } = await import("@/lib/pipeline/run");
 
+    const subjects = ["o padeiro", "a praça central", "o rio que corta a cidade", "as muralhas antigas", "o mercado de especiarias", "a torre do relógio", "o porto movimentado", "a biblioteca esquecida", "o ferreiro", "a ponte de pedra"];
+    const actions = ["revela um segredo guardado por séculos", "muda para sempre naquela manhã", "esconde uma passagem subterrânea", "recebe um visitante misterioso", "desperta com um som estranho", "guarda a chave de tudo"];
     const script = Array.from(
       { length: 30 },
-      (_, i) => `Nesta parte ${i + 1} da história, um evento diferente e surpreendente acontece na cidade antiga.`,
+      (_, i) => `Na parte ${i + 1}, ${subjects[i % subjects.length]} ${actions[i % actions.length]}.`,
     ).join(" ");
 
     const job = await createJob({
